@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TexasHoldemWPF.Enums;
 using TexasHoldemWPF.Models.Entities;
-using TexasHoldemWPF.Models.Strategies; 
+using TexasHoldemWPF.Models.Actions;
+using TexasHoldemWPF.Models.Strategies;
 
 namespace TexasHoldemWPF.ViewModels
 {
@@ -32,15 +33,11 @@ namespace TexasHoldemWPF.ViewModels
 
             int betAmount = Math.Min(GameViewModel.DEFAULT_BET_AMOUNT, _context.PlayerBalance);
             _context.CanAct = false;
-            ExecuteBet(betAmount);
+            
+            new RaiseAction(betAmount).Execute(_context, _context.GetPlayer(0));
+            
+            _context.UpdateCallCheckButtonText();
             _ = _context.BotManager.StartBotActions();
-        }
-
-        private void ExecuteBet(int amount)
-        {
-            UpdateBalances(amount);
-            _context.CurrentBet = amount;
-            UpdatePlayerAction(0, amount, $"Bet ${amount}");
         }
 
         public void ShowRaiseMenu()
@@ -48,7 +45,7 @@ namespace TexasHoldemWPF.ViewModels
             if (!_context.CanAct) return;
 
             IRaiseOptionsStrategy strategy = _context.CurrentGameState == GameState.PreFlop
-                ? new PreFlopRaiseStrategy()
+                ? (IRaiseOptionsStrategy)new PreFlopRaiseStrategy()
                 : new PostFlopRaiseStrategy();
 
             var result = strategy.GetOptions(_context);
@@ -69,7 +66,7 @@ namespace TexasHoldemWPF.ViewModels
             }
 
             _context.CanAct = false;
-            ExecuteRaiseAmount(raiseAmount);
+            new RaiseAction(raiseAmount).Execute(_context, _context.GetPlayer(0));
 
             if (_context.PlayerBalance == 0)
                 await HandleAllInRaise();
@@ -83,65 +80,22 @@ namespace TexasHoldemWPF.ViewModels
 
         private bool IsInvalidRaise(int raiseAmount) => raiseAmount <= 0 || raiseAmount > _context.PlayerBalance;
 
-        private void ExecuteRaiseAmount(int raiseAmount)
-        {
-            UpdateBalances(raiseAmount);
-            _context.CurrentBet += raiseAmount;
-            UpdatePlayerAction(0, _context.CurrentBet, $"Raise ${raiseAmount}");
-        }
-
         public void Call()
         {
             if (!_context.CanAct) return;
 
-            int callAmount = Math.Min(CalculateCallAmount(), _context.PlayerBalance);
-
-            if (callAmount == 0)
-                _context.GetPlayer(0).LastAction = "Check";
-            else
-                ExecuteCall(callAmount);
-
-            FinalizeCall();
-        }
-
-        private int CalculateCallAmount() => _context.CurrentBet - _context.GetPlayer(0).CurrentBet;
-
-        private void ExecuteCall(int amount)
-        {
-            _context.GetPlayer(0).CurrentBet += amount;
-            _context.PlayerBalance -= amount;
-            _context.PotSize += amount;
-            _context.GetPlayer(0).LastAction = $"Call ${amount}";
-        }
-
-        private void FinalizeCall()
-        {
-            _context.GetPlayer(0).Balance = _context.PlayerBalance;
+            new CallAction().Execute(_context, _context.GetPlayer(0));
             _context.UpdateCallCheckButtonText();
             _context.CanAct = false;
             _ = _context.BotManager.StartBotActions();
         }
 
-        private void UpdateBalances(int amount)
-        {
-            _context.PlayerBalance -= amount;
-            _context.PotSize += amount;
-        }
-
-        private void UpdatePlayerAction(int index, int bet, string actionText)
-        {
-            var player = _context.GetPlayer(index);
-            player.Balance = _context.PlayerBalance;
-            player.CurrentBet = bet;
-            player.LastAction = actionText;
-            _context.UpdateCallCheckButtonText();
-        }
         public void Fold()
         {
             if (!_context.CanAct) return;
+
             _context.CanAct = false;
-            _context.GetPlayer(0).IsFolded = true;
-            _context.GetPlayer(0).LastAction = "Fold";
+            new FoldAction().Execute(_context, _context.GetPlayer(0));
 
             var activeBots = GetActiveBots();
             if (activeBots.Count == 1)
@@ -149,10 +103,14 @@ namespace TexasHoldemWPF.ViewModels
                 HandleSingleBotRemaining(activeBots.First());
                 return;
             }
+
             _context.WinnerManager.DetermineWinnerAfterFold();
         }
 
-        private List<Player> GetActiveBots() => _context.Players.Where(p => !p.IsFolded && p is BotPlayer).ToList();
+        private List<Player> GetActiveBots()
+        {
+            return _context.Players.Where(p => !p.IsFolded && p is BotPlayer).ToList();
+        }
 
         private void HandleSingleBotRemaining(Player winner)
         {
