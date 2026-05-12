@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -129,11 +129,14 @@ namespace TexasHoldemWPF.ViewModels
         public Tournament CurrentTournament { get; }
         public NavigationService NavigationService => _navigationService;
         #endregion
+        
+        private readonly IEnumerable<IPlayerFactory> _playerFactories;
 
-        public GameViewModel(Tournament tournament, NavigationService navigationService)
+        public GameViewModel(Tournament tournament, NavigationService navigationService, IEnumerable<IPlayerFactory> playerFactories)
         {
             CurrentTournament = tournament;
             _navigationService = navigationService;
+            _playerFactories = playerFactories;
 
             _bigBlind = (int)tournament.BigBlind;
             _buyIn = tournament.BuyIn;
@@ -189,18 +192,7 @@ namespace TexasHoldemWPF.ViewModels
             _deck = new Deck();
             _deck.Shuffle();
 
-            _players = new List<Player>();
-
-            var factories = new List<IPlayerFactory>
-            {
-                new HumanPlayerFactory(),
-                new BotAggresiveFactory(),
-                new BotConservativeFactory(),
-                new BotLooseFactory(),
-                new BotTightFactory()
-            };
-
-            _players = factories
+            _players = _playerFactories
                 .Select(f => f.CreatePlayer(_buyIn))
                 .ToList();
 

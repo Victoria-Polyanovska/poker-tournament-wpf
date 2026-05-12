@@ -1,7 +1,11 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using TexasHoldemWPF.Models.Entities;
+using TexasHoldemWPF.Models.Factory;
+using TexasHoldemWPF.Models.Factory.BotFactories;
 using TexasHoldemWPF.Resources;
 using TexasHoldemWPF.Services;
 using TexasHoldemWPF.Views;
@@ -59,7 +63,17 @@ namespace TexasHoldemWPF.ViewModels
             }
 
             PlayerBalance -= tournament.BuyIn;
-            var gameViewModel = new GameViewModel(tournament, _navigationService);
+
+            var factories = new List<IPlayerFactory>
+            {
+                new HumanPlayerFactory(),
+                new BotAggresiveFactory(),
+                new BotConservativeFactory(),
+                new BotLooseFactory(),
+                new BotTightFactory()
+            };
+
+            var gameViewModel = new GameViewModel(tournament, _navigationService, factories);
             _navigationService.NavigateTo(new GameView { DataContext = gameViewModel });
         }
 
