@@ -3,9 +3,9 @@ using TexasHoldemWPF.ViewModels;
 
 namespace TexasHoldemWPF.Models.Actions
 {
-    public class FoldAction : IPlayerAction
+    public class FoldAction : BaseAction
     {
-        public void Execute(GameViewModel context, Player player)
+        public override void Execute(GameViewModel context, Player player)
         {
             player.IsFolded = true;
             player.LastAction = "Fold";

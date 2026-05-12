@@ -131,6 +131,8 @@
     <Compile Include="Models\Utilities\BotNameGenerator.cs" />
     <Compile Include="Models\Utilities\HandEvaluator.cs" />
     <Compile Include="Models\Actions\IPlayerAction.cs" />
+    <Compile Include="Models\Actions\BaseAction.cs" />
+    <Compile Include="Models\Actions\CheckAction.cs" />
     <Compile Include="Models\Actions\FoldAction.cs" />
     <Compile Include="Models\Actions\CallAction.cs" />
     <Compile Include="Models\Actions\RaiseAction.cs" />
@@ -142,6 +144,7 @@
     <Compile Include="Resources\Converters\RaiseOptionConverter.cs" />
     <Compile Include="Resources\NavigationService.cs" />
     <Compile Include="Resources\RelayCommand.cs" />
+    <Compile Include="Services\BalancePersistenceService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\GameBettingManager.cs" />
     <Compile Include="ViewModels\GameBotManager.cs" />
@@ -152,6 +155,7 @@
     <Compile Include="ViewModels\LoseViewModel.cs" />
     <Compile Include="ViewModels\MenuViewModel.cs" />
     <Compile Include="ViewModels\PokerCombinationsViewModel.cs" />
+    <Compile Include="ViewModels\RaiseOptionsStrategy.cs" />
     <Compile Include="ViewModels\WinViewModel.cs" />
     <Compile Include="Views\GameView.xaml.cs">
       <DependentUpon>GameView.xaml</DependentUpon>

@@ -103,7 +103,7 @@ namespace TexasHoldemWPF.ViewModels
                     break;
 
                 case ActionType.Check:
-                    action = new CallAction();
+                    action = new CheckAction();
                     break;
 
                 default:
