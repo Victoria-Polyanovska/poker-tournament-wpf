@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TexasHoldemWPF.Enums;
 using TexasHoldemWPF.Models.Entities;
+using TexasHoldemWPF.Models.Actions;
 
 namespace TexasHoldemWPF.ViewModels
 {
@@ -42,19 +43,9 @@ namespace TexasHoldemWPF.ViewModels
             int betAmount = Math.Min(GameViewModel.DEFAULT_BET_AMOUNT, _context.PlayerBalance);
 
             _context.CanAct = false;
-            ExecuteBet(betAmount);
-            _ = _context.BotManager.StartBotActions();
-        }
-
-        private void ExecuteBet(int amount)
-        {
-            _context.PlayerBalance -= amount;
-            _context.PotSize += amount;
-            _context.CurrentBet = amount;
-            _context.GetPlayer(0).Balance = _context.PlayerBalance;
-            _context.GetPlayer(0).CurrentBet = amount;
-            _context.GetPlayer(0).LastAction = $"Bet ${amount}";
+            new RaiseAction(betAmount).Execute(_context, _context.GetPlayer(0));
             _context.UpdateCallCheckButtonText();
+            _ = _context.BotManager.StartBotActions();
         }
 
         public void ShowRaiseMenu()
@@ -108,7 +99,7 @@ namespace TexasHoldemWPF.ViewModels
             }
 
             _context.CanAct = false;
-            ExecuteRaiseAmount(raiseAmount);
+            new RaiseAction(raiseAmount).Execute(_context, _context.GetPlayer(0));
 
             if (_context.PlayerBalance == 0)
             {
@@ -125,16 +116,6 @@ namespace TexasHoldemWPF.ViewModels
         private bool IsInvalidRaise(int raiseAmount)
         {
             return raiseAmount <= 0 || raiseAmount > _context.PlayerBalance;
-        }
-
-        private void ExecuteRaiseAmount(int raiseAmount)
-        {
-            _context.PlayerBalance -= raiseAmount;
-            _context.PotSize += raiseAmount;
-            _context.CurrentBet += raiseAmount;
-            _context.GetPlayer(0).Balance = _context.PlayerBalance;
-            _context.GetPlayer(0).CurrentBet = _context.CurrentBet;
-            _context.GetPlayer(0).LastAction = $"Raise ${raiseAmount}";
         }
 
         private async Task HandleAllInRaise()
@@ -161,37 +142,7 @@ namespace TexasHoldemWPF.ViewModels
         {
             if (!_context.CanAct) return;
 
-            int callAmount = CalculateCallAmount();
-            callAmount = Math.Min(callAmount, _context.PlayerBalance);
-
-            if (callAmount == 0)
-            {
-                _context.GetPlayer(0).LastAction = "Check";
-            }
-            else
-            {
-                ExecuteCall(callAmount);
-            }
-
-            FinalizeCall();
-        }
-
-        private int CalculateCallAmount()
-        {
-            return _context.CurrentBet - _context.GetPlayer(0).CurrentBet;
-        }
-
-        private void ExecuteCall(int amount)
-        {
-            _context.GetPlayer(0).CurrentBet += amount;
-            _context.PlayerBalance -= amount;
-            _context.PotSize += amount;
-            _context.GetPlayer(0).LastAction = $"Call ${amount}";
-        }
-
-        private void FinalizeCall()
-        {
-            _context.GetPlayer(0).Balance = _context.PlayerBalance;
+            new CallAction().Execute(_context, _context.GetPlayer(0));
             _context.UpdateCallCheckButtonText();
             _context.CanAct = false;
             _ = _context.BotManager.StartBotActions();
@@ -202,8 +153,7 @@ namespace TexasHoldemWPF.ViewModels
             if (!_context.CanAct) return;
 
             _context.CanAct = false;
-            _context.GetPlayer(0).IsFolded = true;
-            _context.GetPlayer(0).LastAction = "Fold";
+            new FoldAction().Execute(_context, _context.GetPlayer(0));
 
             var activeBots = GetActiveBots();
             if (activeBots.Count == 1)

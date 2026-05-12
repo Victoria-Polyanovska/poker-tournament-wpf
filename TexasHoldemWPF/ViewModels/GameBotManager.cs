@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using TexasHoldemWPF.Enums;
 using TexasHoldemWPF.Models.Entities;
+using TexasHoldemWPF.Models.Actions;
 
 namespace TexasHoldemWPF.ViewModels
 {
@@ -69,90 +70,58 @@ namespace TexasHoldemWPF.ViewModels
             return amountToCall <= 0 && _context.CurrentBet != 0 && player.CurrentBet == _context.CurrentBet;
         }
 
-        private async Task<BotActionResult> ProcessBotAction(int index, Player player, ActionType action)
+        private async Task<BotActionResult> ProcessBotAction(int index, Player player, ActionType actionType)
         {
-            int amountToCall = _context.CurrentBet - player.CurrentBet;
-            var bot = (BotPlayer)player;
+            IPlayerAction action;
 
-            switch (action)
+            switch (actionType)
             {
                 case ActionType.Fold:
-                    return await HandleBotFold(index, player, bot);
+                    if (index == GameViewModel.LAST_BOT_INDEX && _context.PlayerBalance == 0)
+                        action = new CallAction();
+                    else
+                        action = new FoldAction();
+                    break;
 
                 case ActionType.Call:
-                    return HandleBotCall(player, amountToCall, index);
+                    if (index == GameViewModel.FIRST_BOT_INDEX && _context.PlayerBalance == 0)
+                        action = new FoldAction();
+                    else
+                        action = new CallAction();
+                    break;
 
                 case ActionType.Raise:
-                    return HandleBotRaise(player, bot);
+                    if (_context.BettingManager.RaiseOccurredInRound)
+                        action = new CallAction();
+                    else
+                    {
+                        int minRaise = Math.Max(_context.CurrentBet + _context.BigBlindAmount, _context.CurrentBet * 2);
+                        int raiseAmount = Math.Min(minRaise, player.Balance);
+                        action = new RaiseAction(raiseAmount);
+                        _context.BettingManager.SetRaiseOccurred(true);
+                    }
+                    break;
+
+                case ActionType.Check:
+                    action = new CallAction();
+                    break;
 
                 default:
                     return new BotActionResult { NewRaisesOccurred = false };
             }
-        }
 
-        private async Task<BotActionResult> HandleBotFold(int index, Player player, BotPlayer bot)
-        {
-            if (index == GameViewModel.LAST_BOT_INDEX && _context.PlayerBalance == 0)
-                return HandleBotCall(player, _context.CurrentBet - player.CurrentBet, index);
-
-            player.IsFolded = true;
-            player.LastAction = "Fold";
-            _context.ShowGameMessage(_context.GameMessage + $"\n{bot.Name} folded.");
-            await CheckForEarlyWin();
-            return new BotActionResult { NewRaisesOccurred = false };
-        }
-
-        private BotActionResult HandleBotCall(Player player, int amountToCall, int index)
-        {
-            if (index == GameViewModel.FIRST_BOT_INDEX && _context.PlayerBalance == 0)
-                return HandleBotFoldAsync(player, (BotPlayer)player).Result;
-
-            int callAmount = Math.Min(amountToCall, player.Balance);
-            player.Balance -= callAmount;
-            _context.PotSize += callAmount;
-            player.CurrentBet += callAmount;
-
-            player.LastAction = DetermineCallActionText(callAmount, player.Balance);
-            _context.OnPropertyChanged(nameof(GameViewModel.Players));
-
-            return new BotActionResult { NewRaisesOccurred = false };
-        }
-
-        private async Task<BotActionResult> HandleBotFoldAsync(Player player, BotPlayer bot)
-        {
-            player.IsFolded = true;
-            player.LastAction = "Fold";
-            await CheckForEarlyWin();
-            return new BotActionResult { NewRaisesOccurred = false };
-        }
-
-        private string DetermineCallActionText(int callAmount, int remainingBalance)
-        {
-            if (callAmount == 0) return "Check";
-            return remainingBalance == 0 ? "All-in" : $"Call ${callAmount}";
-        }
-
-        private BotActionResult HandleBotRaise(Player player, BotPlayer bot)
-        {
-            if (_context.BettingManager.RaiseOccurredInRound)
-                return HandleBotCall(player, _context.CurrentBet - player.CurrentBet,
-                    _context.Players.IndexOf(player));
-
-            int minRaise = Math.Max(_context.CurrentBet + _context.BigBlindAmount, _context.CurrentBet * 2);
-            int raiseAmount = Math.Min(minRaise, player.Balance);
-
-            player.Balance -= raiseAmount;
-            _context.PotSize += raiseAmount;
-            _context.CurrentBet = player.CurrentBet + raiseAmount;
-            player.CurrentBet = _context.CurrentBet;
-
-            _context.BettingManager.SetRaiseOccurred(true);
-            player.LastAction = player.Balance == 0 ? "All-in" : $"Raise ${raiseAmount}";
+            action.Execute(_context, player);
             _context.UpdateCallCheckButtonText();
             _context.OnPropertyChanged(nameof(GameViewModel.Players));
 
-            return new BotActionResult { NewRaisesOccurred = true };
+            if (action is FoldAction)
+            {
+                await CheckForEarlyWin();
+            }
+
+            return new BotActionResult { NewRaisesOccurred = action is RaiseAction };
         }
+
 
         private async Task CheckForEarlyWin()
         {
