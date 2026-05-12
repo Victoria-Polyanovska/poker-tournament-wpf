@@ -138,6 +138,7 @@
     <Compile Include="Resources\Converters\RaiseOptionConverter.cs" />
     <Compile Include="Resources\NavigationService.cs" />
     <Compile Include="Resources\RelayCommand.cs" />
+    <Compile Include="Services\BalancePersistenceService.cs" />
     <Compile Include="ViewModels\BaseViewModel.cs" />
     <Compile Include="ViewModels\GameBettingManager.cs" />
     <Compile Include="ViewModels\GameBotManager.cs" />
